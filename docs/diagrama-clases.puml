@@ -1,0 +1,117 @@
+@startuml
+title SGHI - Patrones creacionales y módulos principales
+skinparam classAttributeIconSize 0
+
+package "Configuración" {
+    class ConfiguracionHospital <<Singleton>> {
+        +nombre(): string
+        +prediccionHabilitada(): bool
+    }
+    class AppServiceProvider
+    class "Laravel DatabaseManager" as DatabaseManager <<Laravel>>
+
+    AppServiceProvider ..> ConfiguracionHospital : registra como singleton
+    ConfiguracionHospital ..> "config/hospital.php" : lee
+    SistemaSGHI ..> DatabaseManager : transacción
+    note right of ConfiguracionHospital
+        Singleton gestionado por el contenedor Laravel.
+        No crea un pool PDO ni usa getInstance() estático.
+    end note
+}
+
+package "Abstract Factory" {
+    interface FabricaHospital {
+        +crearPaciente(datos): Paciente
+        +crearHistorial(paciente, datos): Historial
+        +crearModeloPrediccion(): ModeloPrediccion
+    }
+    class FabricaHospitalGeneral
+    class FabricaHospitalPediatrico
+    class FabricaHospitalOncologico
+    class SelectorFabricaHospital {
+        +paraTipo(tipo): FabricaHospital
+    }
+    interface ModeloPrediccion
+    class ModeloPrediccionDemo
+
+    FabricaHospital <|.. FabricaHospitalGeneral
+    FabricaHospital <|.. FabricaHospitalPediatrico
+    FabricaHospital <|.. FabricaHospitalOncologico
+    SelectorFabricaHospital ..> FabricaHospital : selecciona
+    FabricaHospital ..> ModeloPrediccion : crea estrategia
+    ModeloPrediccion <|.. ModeloPrediccionDemo
+}
+
+package "Servicios SGHI" {
+    class ServicioWebApi {
+        +registrarPaciente(datos): Paciente
+    }
+    class PacienteController
+    class SistemaSGHI {
+        +registrarPaciente(datos, fabrica): Paciente
+        +validarPaciente(paciente): bool
+        +modeloPrediccion(fabrica): ModeloPrediccion
+    }
+
+    ServicioWebApi --> SelectorFabricaHospital
+    ServicioWebApi --> SistemaSGHI
+    PacienteController ..> ConfiguracionHospital : muestra nombre
+    SistemaSGHI ..> FabricaHospital : depende de interfaz
+}
+
+package "Builder de historial" {
+    class DirectorHistorial {
+        +construirResumido(paciente, datos): Historial
+        +construirCompleto(paciente, datos): Historial
+    }
+    class HistorialBuilder {
+        +iniciar(tipoHistorial): self
+        +agregarDiagnostico(valor): self
+        +agregarAntecedentes(valores): self
+        +agregarMedicamentos(valores): self
+        +agregarAlergias(valores): self
+        +agregarEstudios(valores): self
+        +construir(): Historial
+    }
+
+    DirectorHistorial --> HistorialBuilder : dirige pasos
+    HistorialBuilder --> Historial : crea/actualiza
+}
+
+package "Modelos persistentes" {
+    class Paciente {
+        +id
+        +nombre
+        +tipo
+        +fecha_nacimiento
+    }
+    class PacienteGeneral
+    class PacientePediatrico
+    class PacienteOncologico
+    class Historial {
+        +tipo
+        +tipo_historial
+        +diagnostico
+        +antecedentes
+        +medicamentos
+        +alergias
+        +estudios
+    }
+    class Cita
+    class Tratamiento
+
+    Paciente <|-- PacienteGeneral
+    Paciente <|-- PacientePediatrico
+    Paciente <|-- PacienteOncologico
+    Paciente "1" -- "0..1" Historial
+    Paciente "1" -- "0..*" Cita
+    Paciente "1" -- "0..*" Tratamiento
+    FabricaHospital ..> Paciente : crea familia
+    FabricaHospital ..> Historial : crea historial inicial
+}
+
+note bottom of Historial
+    tipo identifica la especialidad del paciente.
+    tipo_historial distingue resumido de completo.
+end note
+@enduml
