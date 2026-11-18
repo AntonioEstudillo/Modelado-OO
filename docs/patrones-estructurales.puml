@@ -1,0 +1,89 @@
+@startuml
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam packageStyle rectangle
+left to right direction
+
+package "Controlador web / Laravel" {
+ class PatronesEstructuralesController {
+  +facade(request)
+  +decorator(request)
+  +proxy(request)
+ }
+}
+package "Facade" {
+ class HospitalFacade {
+  -farmacia: ServicioFarmacia
+  -laboratorio: ServicioLaboratorio
+  -imagenologia: ServicioImagenologia
+  -compositor: CompositorReporte
+  +atenderCaso(codigo, traza)
+  +registrarPaciente(codigo, traza)
+  +programarCita(codigo, traza)
+  +solicitarMedicamento(codigo, traza)
+  +solicitarAnalisis(codigo, traza)
+  +generarImagen(codigo, traza)
+  +generarReporteClinico(codigo, traza)
+  +consultarRiesgo(codigo, traza)
+ }
+ class ServicioFarmacia {+solicitarMedicamento(codigo, traza)}
+ class ServicioLaboratorio {+solicitarAnalisis(codigo, traza)}
+ class ServicioImagenologia {+solicitarEstudio(codigo, traza)}
+ HospitalFacade *-- ServicioFarmacia
+ HospitalFacade *-- ServicioLaboratorio
+ HospitalFacade *-- ServicioImagenologia
+}
+package "Decorator" {
+ interface IReporteClinico {+generarReporte(): string}
+ class ReporteClinicoBasico {+generarReporte(): string}
+ abstract class DecoradorReporte {
+  #componente: IReporteClinico
+  +generarReporte(): string
+ }
+ class ReporteConLaboratorio
+ class ReporteConImagenologia
+ class ReporteConFarmacia
+ class CompositorReporte {+componer(codigo, extras, traza): IReporteClinico}
+ IReporteClinico <|.. ReporteClinicoBasico
+ IReporteClinico <|.. DecoradorReporte
+ DecoradorReporte o--> IReporteClinico : envuelve
+ DecoradorReporte <|-- ReporteConLaboratorio
+ DecoradorReporte <|-- ReporteConImagenologia
+ DecoradorReporte <|-- ReporteConFarmacia
+ CompositorReporte ..> IReporteClinico
+}
+package "Proxy" {
+ interface ModeloPrediccionContrato {
+  +generarPrediccionRiesgos(codigo): string
+  +ejecutarModelo(codigo): string
+ }
+ class ModeloPrediccionRealDemo
+ class ProxyModelo {
+  -modeloReal: ModeloPrediccionRealDemo
+  -rolActual: string
+  -cache: array
+  +autorizar(): bool
+  +buscarEnCache(codigo): ?string
+  +generarPrediccionRiesgos(codigo): string
+  +ejecutarModelo(codigo): string
+  +exportarCache(): array
+ }
+ ModeloPrediccionContrato <|.. ModeloPrediccionRealDemo
+ ModeloPrediccionContrato <|.. ProxyModelo
+ ProxyModelo o--> ModeloPrediccionRealDemo : delega solo si autorizado y MISS
+}
+class TrazaPatron {+agregar(paso): void +pasos(): array}
+PatronesEstructuralesController ..> HospitalFacade
+PatronesEstructuralesController ..> CompositorReporte
+PatronesEstructuralesController ..> ProxyModelo
+HospitalFacade ..> CompositorReporte
+HospitalFacade ..> ProxyModelo
+HospitalFacade ..> TrazaPatron
+
+note right of ProxyModelo
+  Selección de rol y caché académicos.
+  No reemplaza la autenticación de Laravel.
+  No realiza predicciones clínicas.
+end note
+@enduml
